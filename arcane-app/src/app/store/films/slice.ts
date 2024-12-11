@@ -1,9 +1,10 @@
 import { createAsyncThunk, createSlice, isRejectedWithValue } from '@reduxjs/toolkit';
-import { RootState, AppThunk } from '../store';
+import { RootState, AppThunk } from '../store'
 
 export interface FilmsState {
-  data: any;
-  status: 'idle' | 'loading' | 'failed';
+  data: any,
+  params: ValidParams,
+  status: 'idle' | 'loading' | 'failed'
 }
 
 export interface Options {
@@ -11,12 +12,27 @@ export interface Options {
   headers: Record<string, string>
 }
 
+interface ValidParams {
+  query?: string
+  genre?: string,
+  year?: string,
+}
+
+const urlParams = new URLSearchParams(window.location.search)
+
 const initialState: FilmsState = {
   data: {},
+  params:{
+    query: urlParams.get('query') || '',
+    genre:urlParams.get('genre') || '',
+    year:urlParams.get('year') || '',
+  },
   status: 'idle',
 };
 
-const filmsUrl: string = 'https://moviesdatabase.p.rapidapi.com/titles/random?list=most_pop_series'
+const randomFilmsUrl: string = 'https://moviesdatabase.p.rapidapi.com/titles/random?list=most_pop_series'
+const filmsParamsUrl: string = 'https://moviesdatabase.p.rapidapi.com/titles/search/title'
+const filmsParamsNoTitleUrl: string = 'https://moviesdatabase.p.rapidapi.com/titles'
 
 const options: Options = {
   method: 'GET',
@@ -26,17 +42,37 @@ const options: Options = {
 	}
 }
 
-export const getFilmsData = createAsyncThunk(
+export const getRandomFilmsData = createAsyncThunk(
   'films/getFilms',
   async () => {
     try {
-      const response = await fetch(filmsUrl, options);
+      window.history.replaceState({}, '', window.location.origin);
+      const response = await fetch(randomFilmsUrl, options)
       return response.json();
     } catch(error:any){
-      return isRejectedWithValue(error.response);
+      return isRejectedWithValue(error.response)
     }
   }
-);
+)
+
+export const getFilsmByFilter = createAsyncThunk(
+  'films/getFilmsByFilter',
+
+  async () => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search)
+      if(!urlParams.has('query')){
+        const response = await fetch(filmsParamsNoTitleUrl + '?' + urlParams, options)
+        return response.json()
+      } else {
+        const response = await fetch(filmsParamsUrl + '/' +`${urlParams.get('query')}` +`${urlParams.has('genre') ? `&genre=${urlParams.get('genre')}` : ''}` + `${urlParams.has('year') ? `&year=${urlParams.get('year')}` : ''}` , options)
+        return response.json()
+      }
+    } catch(error:any){
+      return isRejectedWithValue(error.response)
+    }
+  }
+)
 
 export const filmsSlice = createSlice({
   name: 'films',
@@ -44,25 +80,55 @@ export const filmsSlice = createSlice({
   reducers: {
     clearFilmsData(state){
       state.data = {}
-    }
+    },
+    setParamsQuery(state, action){
+      state.params.query = action.payload
+    },
+    setParamsYear(state, action){
+      state.params.year = action.payload
+    },
+    setParamsGenre(state,action){
+      state.params.genre = action.payload
+    },
+    initUrlParams(state){
+      const urlParams = new URLSearchParams(window.location.search)
+
+      state.params.query ? urlParams.set('query',state.params.query) : urlParams.delete('query')
+      state.params.genre ? urlParams.set('genre',state.params.genre) : urlParams.delete('genre')
+      state.params.year ? urlParams.set('year',state.params.year) : urlParams.delete('year')
+
+      const url: string = window.location.origin + '?' + urlParams
+      window.history.replaceState({}, '', url);
+    },
   },
 
   extraReducers: (builder) => {
     builder
-      .addCase(getFilmsData.pending, (state) => {
+      .addCase(getRandomFilmsData.pending, (state) => {
         state.status = 'loading';
       })
-      .addCase(getFilmsData.fulfilled, (state, action) => {
+      .addCase(getRandomFilmsData.fulfilled, (state, action) => {
         state.status = 'idle';
         state.data = action.payload;
       })
-      .addCase(getFilmsData.rejected, (state) => {
+      .addCase(getRandomFilmsData.rejected, (state) => {
+        state.status = 'failed';
+      })
+
+      .addCase(getFilsmByFilter.pending, (state) => {
+        state.status = 'loading';
+      })
+      .addCase(getFilsmByFilter.fulfilled, (state, action) => {
+        state.status = 'idle';
+        state.data = action.payload;
+      })
+      .addCase(getFilsmByFilter.rejected, (state) => {
         state.status = 'failed';
       });
   },
 });
 
 export const selectFilms = (state: RootState) => state.films;
-export const { clearFilmsData } = filmsSlice.actions;
+export const { clearFilmsData, setParamsQuery, setParamsYear, setParamsGenre, initUrlParams } = filmsSlice.actions;
 
 export default filmsSlice.reducer;

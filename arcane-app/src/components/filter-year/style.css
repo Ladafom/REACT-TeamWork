@@ -1,0 +1,16 @@
+.FilterYear {
+  width: 200px;
+}
+
+.FilterYear > label, .FilterYear > div > input {
+  font-size: 20px;
+  font-family: 'Oswald',sans-serif;
+  line-height: 100%;
+  align-items: center;
+}
+
+.FilterYear > div > input {
+  height: 50px;
+  box-sizing: border-box;
+  padding: 11px 16px;
+}
